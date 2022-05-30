@@ -1,4 +1,4 @@
-# K8S 설치 방법
+# K8S 설치 방법 (공용망 기준, NFS Provisioning 연동 시 설치 방법)
 ## 구성 요소 및 버전
 * cri-o (v1.19.1) or docker-ce(v20.10.5)
 * kubeadm, kubelet, kubectl (v1.19.4)
@@ -14,77 +14,6 @@
 * 클러스터 구성전 master, worker node 최소 스팩
   * master node (controll plane node) - CPU : 2Core 이상
   * master/worker node - RAM : 2GiB 이상
-
-## 폐쇄망 구축 가이드 
-1. **폐쇄망에서 설치하는 경우** 아래 가이드를 참고 하여 image registry를 먼저 구축한다.
-    * https://github.com/tmax-cloud/install-registry/tree/5.0  
-2. 사용하는 image repository에 k8s 설치 시 필요한 이미지를 push한다. 
-    * 작업 디렉토리 생성 및 환경 설정
-    ```bash
-    $ mkdir -p ~/k8s-install
-    $ cd ~/k8s-install
-    $ export REGISTRY={ImageRegistryIP:Port}
-      ex) $ export REGISTRY=172.22.5.2:5000
-    ```
-    * 외부 네트워크 통신이 가능한 환경에서 필요한 이미지를 다운받는다.
-    ```bash
-    $ sudo docker pull k8s.gcr.io/kube-proxy:v1.19.4
-    $ sudo docker pull k8s.gcr.io/kube-apiserver:v1.19.4
-    $ sudo docker pull k8s.gcr.io/kube-controller-manager:v1.19.4
-    $ sudo docker pull k8s.gcr.io/kube-scheduler:v1.19.4
-    $ sudo docker pull k8s.gcr.io/etcd:3.4.13-0
-    $ sudo docker pull k8s.gcr.io/coredns:1.7.0
-    $ sudo docker pull k8s.gcr.io/pause:3.2
-    ```
-    ![image](figure/dockerimages.PNG)
-    * docker image를 tar로 저장한다.
-    ```bash
-    $ sudo docker save -o kube-proxy.tar k8s.gcr.io/kube-proxy:v1.19.4
-    $ sudo docker save -o kube-controller-manager.tar k8s.gcr.io/kube-controller-manager:v1.19.4
-    $ sudo docker save -o etcd.tar k8s.gcr.io/etcd:3.4.13-0
-    $ sudo docker save -o coredns.tar k8s.gcr.io/coredns:1.7.0
-    $ sudo docker save -o kube-scheduler.tar k8s.gcr.io/kube-scheduler:v1.19.4
-    $ sudo docker save -o kube-apiserver.tar k8s.gcr.io/kube-apiserver:v1.19.4
-    $ sudo docker save -o pause.tar k8s.gcr.io/pause:3.2
-    ```
-    ![image](figure/dockersave.PNG)
-3. 위의 과정에서 생성한 tar 파일들을 폐쇄망 환경으로 이동시킨 뒤 사용하려는 registry에 이미지를 push한다.
-    ```bash
-    $ sudo docker load -i kube-apiserver.tar
-    $ sudo docker load -i kube-scheduler.tar
-    $ sudo docker load -i kube-controller-manager.tar 
-    $ sudo docker load -i kube-proxy.tar
-    $ sudo docker load -i etcd.tar
-    $ sudo docker load -i coredns.tar
-    $ sudo docker load -i pause.tar
-    ```
-    ![image](figure/dockerload.PNG)
-    ```bash
-    $ sudo docker tag k8s.gcr.io/kube-apiserver:v1.19.4 ${REGISTRY}/k8s.gcr.io/kube-apiserver:v1.19.4
-    $ sudo docker tag k8s.gcr.io/kube-proxy:v1.19.4 ${REGISTRY}/k8s.gcr.io/kube-proxy:v1.19.4
-    $ sudo docker tag k8s.gcr.io/kube-controller-manager:v1.19.4 ${REGISTRY}/k8s.gcr.io/kube-controller-manager:v1.19.4
-    $ sudo docker tag k8s.gcr.io/etcd:3.4.13-0 ${REGISTRY}/k8s.gcr.io/etcd:3.4.13-0
-    $ sudo docker tag k8s.gcr.io/coredns:1.7.0 ${REGISTRY}/k8s.gcr.io/coredns:1.7.0
-    $ sudo docker tag k8s.gcr.io/kube-scheduler:v1.19.4 ${REGISTRY}/k8s.gcr.io/kube-scheduler:v1.19.4
-    $ sudo docker tag k8s.gcr.io/pause:3.2 ${REGISTRY}/k8s.gcr.io/pause:3.2
-    ```
-    ![image](figure/tag.PNG)
-    ```bash
-    $ sudo docker push ${REGISTRY}/k8s.gcr.io/kube-apiserver:v1.19.4
-    $ sudo docker push ${REGISTRY}/k8s.gcr.io/kube-proxy:v1.19.4
-    $ sudo docker push ${REGISTRY}/k8s.gcr.io/kube-controller-manager:v1.19.4
-    $ sudo docker push ${REGISTRY}/k8s.gcr.io/etcd:3.4.13-0
-    $ sudo docker push ${REGISTRY}/k8s.gcr.io/coredns:1.7.0
-    $ sudo docker push ${REGISTRY}/k8s.gcr.io/kube-scheduler:v1.19.4
-    $ sudo docker push ${REGISTRY}/k8s.gcr.io/pause:3.2
-    ```
-    ![image](figure/push.PNG)
-    ```bash
-    $ curl ${REGISTRY}/v2/_catalog
-    ```    
-    ![image](figure/check.PNG)
-* 비고 :
-    * 위 내용은 2개이상의 마스터 구축시 마스터 1개에서만 진행한다.
 
 ## 설치 가이드
 0. [(Master/Worker 공통) 환경 설정](/README.md#step0-환경-설정-masterworker-공통)
@@ -168,14 +97,7 @@ case2. [ 다중화 master cluser 구성](/README.md##case-2-다중-contorl-plain
 * 목적 : `k8s container cri-o runtime 설치`
 * 순서 :
     * cri-o(v1.19.1)를 설치한다. 
-     * (폐쇄망) 아래 주소를 참조하여 패키지 레포를 등록 후 crio를 설치한다.
-        * https://github.com/tmax-cloud/install-pkg-repo/tree/5.0
-	```bash
-	sudo yum -y install cri-o
-	sudo systemctl enable crio
-	sudo systemctl start crio
-	```
-     * (외부망) crio 버전 지정 및 레포를 등록 후 crio를 설치한다.
+     * crio 버전 지정 및 레포를 등록 후 crio를 설치한다.
 	```bash
 	VERSION=1.19:1.19.1
 	sudo curl -L -o /etc/yum.repos.d/devel:kubic:libcontainers:stable.repo https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/CentOS_7/devel:kubic:libcontainers:stable.repo
@@ -190,7 +112,6 @@ case2. [ 다중화 master cluser 구성](/README.md##case-2-다중-contorl-plain
 	sudo systemctl status crio
 	rpm -qi cri-o
 	```
-    ![image](figure/crio-v(v1.19.1).PNG)
 * 비고 :
     * 추후 설치예정인 network plugin과 crio의 가상 인터페이스 충돌을 막기위해 cri-o의 default 인터페이스 설정을 제거한다.
 	```bash
@@ -199,9 +120,6 @@ case2. [ 다중화 master cluser 구성](/README.md##case-2-다중-contorl-plain
 	sudo rm -rf /etc/cni/net.d/87-podman-bridge.conflist
 	``` 
     * crio.conf 내용을 수정한다. ( sudo vi /etc/crio/crio.conf )
-      * (폐쇄망) insecure_registries = ["{registry}:{port}"]
-      * (폐쇄망) pause_image : "k8s.gcr.io/pause:3.1" 을 "{registry}:{port}/k8s.gcr.io/pause:3.1" 로 변경
-      ![image](figure/crio_config.PNG)
     * pid cgroup의 max pid limit 설정이 필요한 경우 pids_limit 개수를 수정한다.
       * default : pids_limit = 1024
       * 시스템의 제한값인 `/proc/sys/kernel/pid_max`의 값 이하로 설정한다.
@@ -244,17 +162,6 @@ case2. [ 다중화 master cluser 구성](/README.md##case-2-다중-contorl-plain
     yum list docker-ce.x86-64 --showduplicates
     ex) yum install -y docker-ce-18.09.7.ce
     ```  
-    * (폐쇄망) private registry 접근을 위해 daemon.json 내용을 수정한다.
-      * sudo vi /etc/docker/daemon.json
-    ```bash
-    {
-      "exec-opts": ["native.cgroupdriver=systemd"],
-      "log-driver": "json-file",
-      "log-opts": { "max-size": "100m" },
-      "storage-driver": "overlay2",
-      "insecure-registries": ["{registry}:{port}"]
-    }
-    ```
     * docker를 재실행하고 status를 확인한다.
     ```bash
       sudo systemctl restart docker
@@ -281,14 +188,8 @@ case2. [ 다중화 master cluser 구성](/README.md##case-2-다중-contorl-plain
 ## Step 2. kubeadm, kubelet, kubectl 설치 (Master/Worker 공통)
 * 목적 : `Kubernetes 구성을 위한 kubeadm, kubelet, kubectl 설치한다.`
 * 순서:
-    * CRI-O 메이저와 마이너 버전은 쿠버네티스 메이저와 마이너 버전이 일치해야 한다.
-    * (폐쇄망) kubeadm, kubectl, kubelet 설치 (v1.19.4)
-	```bash
-	sudo yum install -y kubeadm-1.19.4-0 kubelet-1.19.4-0 kubectl-1.19.4-0
-	
-	sudo systemctl enable kubelet
-	```  	
-    * (외부망) 레포 등록 후 kubeadm, kubectl, kubelet 설치 (v1.19.4)
+    * CRI-O 메이저와 마이너 버전은 쿠버네티스 메이저와 마이너 버전이 일치해야 한다.  	
+    * 레포 등록 후 kubeadm, kubectl, kubelet 설치 (v1.19.4)
 	```bash
 	sudo cat << "EOF" | sudo tee -a /etc/yum.repos.d/kubernetes.repo
 	[kubernetes]
@@ -315,7 +216,7 @@ case2. [ 다중화 master cluser 구성](/README.md##case-2-다중-contorl-plain
 	apiVersion: kubeadm.k8s.io/v1beta2
 	kind: InitConfiguration
 	localAPIEndpoint:
-  		advertiseAddress: {api server IP}
+  		advertiseAddress: {api server IP}(Master IP 주소)
   		bindPort: 6443
 	nodeRegistration:
   		criSocket: /var/run/crio/crio.sock
@@ -323,11 +224,11 @@ case2. [ 다중화 master cluser 구성](/README.md##case-2-다중-contorl-plain
 	apiVersion: kubeadm.k8s.io/v1beta2
 	kind: ClusterConfiguration
 	kubernetesVersion: {k8s version}
-	controlPlaneEndpoint: {endpoint IP}:6443
+	controlPlaneEndpoint: {endpoint IP}:6443(Master IP 주소)
 	imageRepository: {registry}/k8s.gcr.io
 	networking:
- 		serviceSubnet: {SERVICE_IP_POOL}/{CIDR}
-  		podSubnet: {POD_IP_POOL}/{CIDR}
+ 		serviceSubnet: {SERVICE_IP_POOL}/{CIDR} (ex) 10.100.0.0/16)
+  		podSubnet: {POD_IP_POOL}/{CIDR} (ex) 10.240.0.0/16)
 	---
 	apiVersion: kubelet.config.k8s.io/v1beta1
 	kind: KubeletConfiguration
@@ -380,7 +281,7 @@ case2. [ 다중화 master cluser 구성](/README.md##case-2-다중-contorl-plain
       apiVersion: kubeadm.k8s.io/v1beta2
       kind: InitConfiguration
       localAPIEndpoint:
-      advertiseAddress: {api server IP}
+      advertiseAddress: {api server IP} (Master IP)
   		bindPort: 6443
       nodeRegistration:
   		criSocket: /var/run/crio/crio.sock
@@ -388,7 +289,7 @@ case2. [ 다중화 master cluser 구성](/README.md##case-2-다중-contorl-plain
       apiVersion: kubeadm.k8s.io/v1beta2
       kind: ClusterConfiguration
       kubernetesVersion: {k8s version}
-      controlPlaneEndpoint: {endpoint IP}:6443
+      controlPlaneEndpoint: {endpoint IP}:6443 (Master IP)
       imageRepository: {registry}/k8s.gcr.io
       networking:
  		serviceSubnet: ${SERVICE_IPV4_POOL}/${CIDR},${SERVICE_IPV6_POOL}/${CIDR}
@@ -443,7 +344,7 @@ case2. [ 다중화 master cluser 구성](/README.md##case-2-다중-contorl-plain
 		} 
 	}
     ```	
-    ![image](figure/keepalived.PNG)
+    
 	* interface : network interface 이름 확인 (ip a 명령어로 확인) ex) enp0s8
 	* state : master or backup으로 설정, 하나의 master에만 master를 설정하고 나머지 master에는 backup으로 설정
 	* priority : Master 우선순위  
@@ -466,7 +367,6 @@ case2. [ 다중화 master cluser 구성](/README.md##case-2-다중-contorl-plain
     ```
     * 설정한 VIP 확인 가능, 여러 마스터 중 하나만 보임.
     * inet {VIP}/32 scope global eno1
-    ![image](figure/ipa.PNG)
 
     * 쿠버네티스 설치시 필요한 kubeadm-config를 작성한다.
         * vi kubeadm-config.yaml
@@ -474,7 +374,7 @@ case2. [ 다중화 master cluser 구성](/README.md##case-2-다중-contorl-plain
 	apiVersion: kubeadm.k8s.io/v1beta2
 	kind: InitConfiguration
 	localAPIEndpoint:
-  		advertiseAddress: {api server IP}
+  		advertiseAddress: {api server IP} (Master IP)
   		bindPort: 6443
 	nodeRegistration:
   		criSocket: /var/run/crio/crio.sock
@@ -482,7 +382,7 @@ case2. [ 다중화 master cluser 구성](/README.md##case-2-다중-contorl-plain
 	apiVersion: kubeadm.k8s.io/v1beta2
 	kind: ClusterConfiguration
 	kubernetesVersion: {k8s version}
-	controlPlaneEndpoint: {endpoint IP}:6443
+	controlPlaneEndpoint: {endpoint IP}:6443 (Master IP)
 	imageRepository: {registry}/k8s.gcr.io
 	networking:
  		serviceSubnet: {SERVICE_IP_POOL}/{CIDR}
@@ -551,6 +451,32 @@ case2. [ 다중화 master cluser 구성](/README.md##case-2-다중-contorl-plain
 	```bash
 	kubeadm join 172.22.5.2:6443 --token 2cks7n.yvojnnnq1lyz1qud \ --discovery-token-ca-cert-hash sha256:efba18bb4862cbcb54fb643a1b7f91c25e08cfc1640e5a6fffa6de83e4c76f07 \ --control-plane --certificate-key f822617fcbfde09dff35c10e388bc881904b5b6c4da28f3ea8891db2d0bd3a62 --apiserver-advertise-address=172.22.4.3 --cri-socket=/var/run/crio/crio.sock
 	```    
+## Setp 4. CNI(calico) 설치 (NFS Provisiong 연동을 위해서는 반드시 설치 해줘야함)
+* 목적 : Pod와 외부 통신을 연결한다.
+* 순서 : 
+       ```bash
+       curl https://docs.projectcalico.org/archive/v3.8/manifests/calico.yaml -O
+       vi calico.yaml
+       :set nu -> 624번 라인으로 이동
+       
+       - name: CALICO_IPV4POOL_CIDR
+       - value {Pod CIDE IP 주소 입력}
+       :wq
+       
+       kubectl apply -f calico.yaml
+       watch kubectl get pods --all-namespaces (calico pods 동작 확인) 
+       
+       kube-system	  calico-kube-controllers-bcc6f659f-5jgj7   1/1     Running     3          3d21h
+       kube-system	  calico-node-nm2hc                         1/1     Running     0          3d21h
+       kube-system	  calico-node-s29mm                         1/1     Running     0          3d21h
+       
+       ```
+     * Pod CIDE IP 주소 확인 방법
+     * k8s Master Node
+       ```bash
+       kubectl describe node | egrep '^Name|PodCIDR'
+       ```
+       
 	
 ## Step 4. Cluster join (Worker)
 * 목적 : `kubernetes cluster에 join한다.`
