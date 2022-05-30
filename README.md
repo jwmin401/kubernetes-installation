@@ -454,6 +454,7 @@ case2. [ 다중화 master cluser 구성](/README.md##case-2-다중-contorl-plain
 ## Setp 4. CNI(calico) 설치 (NFS Provisiong 연동을 위해서는 반드시 설치 해줘야함)
 * 목적 : Pod와 외부 통신을 연결한다.
 * 순서 : 
+
        ```bash
        curl https://docs.projectcalico.org/archive/v3.8/manifests/calico.yaml -O
        vi calico.yaml
@@ -478,7 +479,7 @@ case2. [ 다중화 master cluser 구성](/README.md##case-2-다중-contorl-plain
        ```
        
 	
-## Step 4. Cluster join (Worker)
+## Step 5. Cluster join (Worker)
 * 목적 : `kubernetes cluster에 join한다.`
 * 순서 :
     * kubernetes master 구축시 생성된 join token을 worker node에서 실행한다.
